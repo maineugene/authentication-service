@@ -28,12 +28,13 @@ class JwtServiceTest {
     @BeforeEach
     void setUp() {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
-        when(jwtProperties.getAccessTokenExpiration()).thenReturn(ACCESS_EXPIRATION);
-        when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_EXPIRATION);
     }
 
     @Test
     void generateAccessToken_shouldContainUserIdAndRole() {
+        when(jwtProperties.getSecret()).thenReturn(SECRET);
+        when(jwtProperties.getAccessTokenExpiration()).thenReturn(ACCESS_EXPIRATION);
+
         String token = jwtService.generateAccessToken(1L, Role.USER);
 
         assertThat(token).isNotBlank();
@@ -43,6 +44,7 @@ class JwtServiceTest {
 
     @Test
     void generateAccessToken_adminRole_shouldContainAdminRole() {
+        when(jwtProperties.getAccessTokenExpiration()).thenReturn(ACCESS_EXPIRATION);
         String token = jwtService.generateAccessToken(2L, Role.ADMIN);
 
         assertThat(jwtService.extractRole(token)).isEqualTo(Role.ADMIN);
@@ -50,6 +52,7 @@ class JwtServiceTest {
 
     @Test
     void generateRefreshToken_shouldBeValid() {
+        when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_EXPIRATION);
         String token = jwtService.generateRefreshToken(1L);
 
         assertThat(token).isNotBlank();
@@ -59,6 +62,7 @@ class JwtServiceTest {
 
     @Test
     void validateToken_withValidToken_shouldReturnTrue() {
+        when(jwtProperties.getAccessTokenExpiration()).thenReturn(ACCESS_EXPIRATION);
         String token = jwtService.generateAccessToken(1L, Role.USER);
 
         assertThat(jwtService.validateToken(token)).isTrue();
@@ -71,6 +75,7 @@ class JwtServiceTest {
 
     @Test
     void validateToken_withTamperedToken_shouldReturnFalse() {
+        when(jwtProperties.getAccessTokenExpiration()).thenReturn(ACCESS_EXPIRATION);
         String token = jwtService.generateAccessToken(1L, Role.USER);
         String tampered = token.substring(0, token.length() - 5) + "XXXXX";
 
