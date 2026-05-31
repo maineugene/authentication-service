@@ -8,13 +8,13 @@ spring:
     enabled: true
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:3752957578123456789012345678901234567890123456789012345678901234}
   access-expiration: 3600000
-  refresh-expiration: 604800000
+  refresh-token-expiration: 604800000
 
 ---
 spring:
@@ -22,9 +22,9 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/${DB_NAME}}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/${DB_NAME:auth_db}}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:root}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
 ---
@@ -33,7 +33,7 @@ spring:
     activate:
       on-profile: docker
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres-db:5432/${DB_NAME}}
+    url: ${DB_URL:jdbc:postgresql://auth-db:5432/${DB_NAME:auth_db}}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:root}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
