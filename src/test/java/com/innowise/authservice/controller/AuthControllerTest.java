@@ -8,9 +8,9 @@ import com.innowise.authservice.dto.ValidateTokenRequest;
 import com.innowise.authservice.dto.ValidateTokenResponse;
 import com.innowise.authservice.exception.AuthServiceException;
 import com.innowise.authservice.model.Role;
-import com.innowise.authservice.service.AuthService;
+import com.innowise.authservice.service.impl.AuthServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.innowise.authservice.service.JwtService;
+import com.innowise.authservice.service.impl.JwtServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -41,10 +41,10 @@ class AuthControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @MockitoBean
-    private JwtService jwtService;
+    private JwtServiceImpl jwtService;
 
     @TestConfiguration
     static class TestSecurityConfig {

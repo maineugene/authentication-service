@@ -2,6 +2,7 @@ package com.innowise.authservice.service;
 
 import com.innowise.authservice.config.JwtProperties;
 import com.innowise.authservice.model.Role;
+import com.innowise.authservice.service.impl.JwtServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,13 +14,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class JwtServiceTest {
+class JwtServiceImplTest {
 
     @Mock
     private JwtProperties jwtProperties;
 
     @InjectMocks
-    private JwtService jwtService;
+    private JwtServiceImpl jwtService;
 
     private static final String SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
     private static final long ACCESS_EXPIRATION = 900000L;

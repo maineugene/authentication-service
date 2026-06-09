@@ -1,7 +1,7 @@
 package com.innowise.authservice.filter;
 
 import com.innowise.authservice.model.Role;
-import com.innowise.authservice.service.JwtService;
+import com.innowise.authservice.service.impl.JwtServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private final JwtServiceImpl jwtService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

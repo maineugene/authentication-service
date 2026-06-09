@@ -1,74 +1,64 @@
 package com.innowise.authservice.service;
 
-import com.innowise.authservice.config.JwtProperties;
 import com.innowise.authservice.model.Role;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
 import java.util.Date;
 
-@Service
-@RequiredArgsConstructor
-public class JwtService {
+/**
+ * Service interface for JSON Web Token (JWT) operations.
+ * Provides methods for token generation, validation, and extracting claims.
+ * This interface defines the contract for all JWT-related operations in the authentication service.
+ */
+public interface JwtService {
+    /**
+     * Generates a new access token for a user.
+     * Access tokens are short-lived and contain user identification and role information.
+     *
+     * @param userId the unique identifier of the user
+     * @param role the role assigned to the user (ADMIN or USER)
+     * @return a compact, URL-safe JWT string
+     */
+    String generateAccessToken(Long userId, Role role);
 
-    private final JwtProperties jwtProperties;
+    /**
+     * Generates a new refresh token for a user.
+     * Refresh tokens are long-lived and used to obtain new access tokens when they expire.
+     *
+     * @param userId the unique identifier of the user
+     * @return a compact, URL-safe JWT string with type claim set to "refresh"
+     */
+    String generateRefreshToken(Long userId);
 
-    public String generateAccessToken(Long userId, Role role) {
-        return Jwts.builder()
-                .subject(userId.toString())
-                .claim("role", role.name())
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + jwtProperties.getAccessTokenExpiration()))
-                .signWith(getSigningKey())
-                .compact();
-    }
+    /**
+     * Validates a JWT token.
+     * Checks signature, expiration, and structural integrity of the token.
+     *
+     * @param token the JWT string to validate
+     * @return true if token is valid and not expired, false otherwise
+     */
+    boolean validateToken(String token);
 
-    public String generateRefreshToken(Long userId) {
-        return Jwts.builder()
-                .subject(userId.toString())
-                .claim("type", "refresh")
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + jwtProperties.getRefreshTokenExpiration()))
-                .signWith(getSigningKey())
-                .compact();
-    }
+    /**
+     * Extracts user ID from a valid JWT token.
+     *
+     * @param token the valid JWT string
+     * @return the user ID stored in the token's subject claim
+     */
+    Long extractUserId(String token);
 
-    public boolean validateToken(String token) {
-        try {
-            parseClaims(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
-    }
+    /**
+     * Extracts user role from a valid JWT token.
+     *
+     * @param token the valid JWT string
+     * @return the Role enum value stored in the token's "role" claim
+     */
+    Role extractRole(String token);
 
-    public Long extractUserId(String token) {
-        return Long.parseLong(parseClaims(token).getSubject());
-    }
-
-    public Role extractRole(String token) {
-        String roleName = parseClaims(token).get("role", String.class);
-        return Role.valueOf(roleName);
-    }
-
-    public Date extractExpiration(String token) {
-        return parseClaims(token).getExpiration();
-    }
-
-    private Claims parseClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecret());
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
+    /**
+     * Extracts expiration date from a valid JWT token.
+     *
+     * @param token the valid JWT string
+     * @return the expiration date from the token's "exp" claim
+     */
+    Date extractExpiration(String token);
 }

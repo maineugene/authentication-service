@@ -1,120 +1,122 @@
 package com.innowise.authservice.service;
 
-import com.innowise.authservice.dto.*;
-import com.innowise.authservice.exception.AuthServiceException;
-import com.innowise.authservice.model.RefreshToken;
-import com.innowise.authservice.model.Role;
-import com.innowise.authservice.model.UserCredential;
-import com.innowise.authservice.repository.RefreshTokenRepository;
-import com.innowise.authservice.repository.UserCredentialRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.innowise.authservice.dto.LoginRequest;
+import com.innowise.authservice.dto.RefreshTokenRequest;
+import com.innowise.authservice.dto.SaveCredentialsRequest;
+import com.innowise.authservice.dto.TokenResponse;
+import com.innowise.authservice.dto.ValidateTokenRequest;
+import com.innowise.authservice.dto.ValidateTokenResponse;
 
-import java.time.LocalDateTime;
+/**
+ * Service interface for authentication and token management operations.
+ * This interface defines the contract for handling user authentication,
+ * JWT token issuance, validation, refresh, and credential management.
+ * Implementations are responsible for coordinating with repositories,
+ * JWT utilities, and password encoders to fulfill these operations.
+ * @see com.innowise.authservice.service.impl.AuthServiceImpl
+ * @see com.innowise.authservice.controller.AuthController
+ */
+public interface AuthService {
 
-@Service
-@RequiredArgsConstructor
-public class AuthService {
+    /**
+     * Saves user credentials in the system.
+     * This method validates that the login doesn't already exist,
+     * encodes the password using BCrypt with a unique salt,
+     * and persists the user credentials to the database.
+     * @param request the credentials save request containing login, password, userId, and role
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status CONFLICT (409) if login already exists
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status BAD_REQUEST (400) if validation fails
+     * @see SaveCredentialsRequest
+     */
+    void saveCredentials(SaveCredentialsRequest request);
 
-    private final UserCredentialRepository userCredentialRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtService jwtService;
-    private final PasswordEncoder passwordEncoder;
+    /**
+     * Authenticates a user and returns a token pair.
+     * Validates the provided login and password against stored credentials.
+     * Upon successful authentication, generates a new access token (short-lived)
+     * and a refresh token (long-lived). The refresh token is persisted in the
+     * database for subsequent refresh operations and revocation capabilities.
+     * @param request the login request containing user login and password
+     * @return TokenResponse containing access token and refresh token
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status UNAUTHORIZED (401) if login or password is invalid
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status FORBIDDEN (403) if user account is deactivated
+     * @see LoginRequest
+     * @see TokenResponse
+     */
+    TokenResponse login(LoginRequest request);
 
-    @Value("${jwt.refresh-token-expiration}")
-    private long refreshTokenExpiration;
+    /**
+     * Refreshes an expired access token using a valid refresh token.
+     * This method implements refresh token rotation pattern:
+     *   Validates that the refresh token exists, is not revoked, and not expired
+     *   Verifies the token's cryptographic signature
+     *   Revokes all existing refresh tokens for the user
+     *   Generates a fresh token pair (new access + new refresh)
+     *   Persists the new refresh token in the database
+     * Note:This operation invalidates the refresh token used,
+     * implementing one-time-use semantics for enhanced security.
+     *
+     * @param request the refresh request containing the refresh token
+     * @return TokenResponse containing new access token and new refresh token
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status UNAUTHORIZED (401) if refresh token is not found, revoked, expired, or invalid
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status NOT_FOUND (404) if user associated with token doesn't exist
+     * @see RefreshTokenRequest
+     * @see TokenResponse
+     */
+    TokenResponse refresh(RefreshTokenRequest request);
 
-    @Transactional
-    public void saveCredentials(SaveCredentialsRequest request) {
-        if (userCredentialRepository.existsByLogin(request.getLogin())) {
-            throw new AuthServiceException("Login already exists", HttpStatus.CONFLICT);
-        }
+    /**
+     * Validates a JWT token and returns its status with user information.
+     *
+     * Performs comprehensive token validation including:
+     * - Signature verification (ensures token was issued by this service)
+     * - Expiration check (rejects expired tokens)
+     * - Structural integrity validation
+     *
+     * Important: This method does NOT throw exceptions on validation failure.
+     * Instead, it returns a response with valid=false and null user information.
+     * This design is suitable for public validation endpoints where invalid tokens are
+     * expected and should not cause error responses.
+     *
+     * @param request the validation request containing the token to validate
+     * @return ValidateTokenResponse containing:
+     *         valid - true if token is valid, false otherwise
+     *         userId - extracted user ID (null if invalid)
+     *         role - extracted user role (null if invalid)
+     * @see ValidateTokenRequest
+     * @see ValidateTokenResponse
+     */
+    ValidateTokenResponse validate(ValidateTokenRequest request);
 
-        UserCredential credential = UserCredential.builder()
-                .userId(request.getUserId())
-                .login(request.getLogin())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
-                .build();
-
-        userCredentialRepository.save(credential);
-    }
-
-    @Transactional
-    public TokenResponse login(LoginRequest request) {
-        UserCredential credential = userCredentialRepository.findByLogin(request.getLogin())
-                .orElseThrow(() -> new AuthServiceException("Invalid login or password", HttpStatus.UNAUTHORIZED));
-
-        if (!credential.isActive()) {
-            throw new AuthServiceException("User account is deactivated", HttpStatus.FORBIDDEN);
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), credential.getPasswordHash())) {
-            throw new AuthServiceException("Invalid login or password", HttpStatus.UNAUTHORIZED);
-        }
-
-        return issueTokenPair(credential.getUserId(), credential.getRole());
-    }
-
-    @Transactional
-    public TokenResponse refresh(RefreshTokenRequest request) {
-        RefreshToken stored = refreshTokenRepository.findByToken(request.getRefreshToken())
-                .orElseThrow(() -> new AuthServiceException("Refresh token not found", HttpStatus.UNAUTHORIZED));
-
-        if (stored.isRevoked()) {
-            throw new AuthServiceException("Refresh token has been revoked", HttpStatus.UNAUTHORIZED);
-        }
-
-        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new AuthServiceException("Refresh token has expired", HttpStatus.UNAUTHORIZED);
-        }
-
-        if (!jwtService.validateToken(request.getRefreshToken())) {
-            throw new AuthServiceException("Invalid refresh token", HttpStatus.UNAUTHORIZED);
-        }
-
-        UserCredential credential = userCredentialRepository.findByUserId(stored.getUserId())
-                .orElseThrow(() -> new AuthServiceException("User not found", HttpStatus.NOT_FOUND));
-
-        refreshTokenRepository.revokeAllByUserId(stored.getUserId());
-
-        return issueTokenPair(credential.getUserId(), credential.getRole());
-    }
-
-    public ValidateTokenResponse validate(ValidateTokenRequest request) {
-        if (!jwtService.validateToken(request.getToken())) {
-            return new ValidateTokenResponse(false, null, null);
-        }
-        Long userId = jwtService.extractUserId(request.getToken());
-        Role role = jwtService.extractRole(request.getToken());
-        return new ValidateTokenResponse(true, userId, role);
-    }
-
-    @Transactional
-    public void deleteCredentialsByUserId(Long userId) {
-        refreshTokenRepository.deleteAllByUserId(userId);
-        userCredentialRepository.findByUserId(userId)
-                .ifPresent(userCredentialRepository::delete);
-    }
-
-    private TokenResponse issueTokenPair(Long userId, Role role) {
-        String accessToken = jwtService.generateAccessToken(userId, role);
-        String rawRefreshToken = jwtService.generateRefreshToken(userId);
-
-        refreshTokenRepository.revokeAllByUserId(userId);
-
-        RefreshToken refreshTokenEntity = RefreshToken.builder()
-                .userId(userId)
-                .token(rawRefreshToken)
-                .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000))
-                .build();
-
-        refreshTokenRepository.save(refreshTokenEntity);
-
-        return new TokenResponse(accessToken, rawRefreshToken);
-    }
+    /**
+     * Deletes user credentials by user ID.
+     *
+     * This operation removes all authentication-related data for the specified user:
+     * - User credentials (login, password hash) from the user_credential table
+     * - All refresh tokens associated with the user from the refresh_token table
+     *
+     * Use Cases:
+     * - User account deletion in the main user service
+     * - Compliance with GDPR "right to be forgotten"
+     * - Administrative cleanup of orphaned authentication data
+     *
+     * Access Control: This operation requires ADMIN role.
+     *
+     * Important: This is a hard delete. After this operation,
+     * the user cannot authenticate and all their refresh tokens are immediately invalidated.
+     * The operation is idempotent - calling with a non-existent userId does nothing.
+     *
+     * @param userId the unique identifier of the user whose credentials should be deleted
+     * @throws com.innowise.authservice.exception.AuthServiceException
+     *         with HTTP status NOT_FOUND (404) if user doesn't exist (optional, implementation-dependent)
+     * @see com.innowise.authservice.repository.UserCredentialRepository
+     * @see com.innowise.authservice.repository.RefreshTokenRepository
+     */
+    void deleteCredentialsByUserId(Long userId);
 }

@@ -12,6 +12,8 @@ import com.innowise.authservice.model.Role;
 import com.innowise.authservice.model.UserCredential;
 import com.innowise.authservice.repository.RefreshTokenRepository;
 import com.innowise.authservice.repository.UserCredentialRepository;
+import com.innowise.authservice.service.impl.AuthServiceImpl;
+import com.innowise.authservice.service.impl.JwtServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class AuthServiceImplTest {
 
     @Mock
     private UserCredentialRepository userCredentialRepository;
@@ -40,13 +42,13 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
-    private JwtService jwtService;
+    private JwtServiceImpl jwtService;
 
     @Mock
     private PasswordEncoder passwordEncoder;
 
     @InjectMocks
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @BeforeEach
     void setUp() {
