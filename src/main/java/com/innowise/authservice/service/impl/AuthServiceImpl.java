@@ -35,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
+    @Override
     @Transactional
     public void saveCredentials(SaveCredentialsRequest request) {
         if (userCredentialRepository.existsByLogin(request.getLogin())) {
@@ -51,6 +52,7 @@ public class AuthServiceImpl implements AuthService {
         userCredentialRepository.save(credential);
     }
 
+    @Override
     @Transactional
     public TokenResponse login(LoginRequest request) {
         UserCredential credential = userCredentialRepository.findByLogin(request.getLogin())
@@ -67,6 +69,7 @@ public class AuthServiceImpl implements AuthService {
         return issueTokenPair(credential.getUserId(), credential.getRole());
     }
 
+    @Override
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
         RefreshToken stored = refreshTokenRepository.findByToken(request.getRefreshToken())
@@ -92,15 +95,22 @@ public class AuthServiceImpl implements AuthService {
         return issueTokenPair(credential.getUserId(), credential.getRole());
     }
 
+    @Override
     public ValidateTokenResponse validate(ValidateTokenRequest request) {
         if (!jwtService.validateToken(request.getToken())) {
             return new ValidateTokenResponse(false, null, null);
         }
         Long userId = jwtService.extractUserId(request.getToken());
+
+        if (jwtService.isRefreshToken(request.getToken())){
+            return new ValidateTokenResponse(true, userId, null);
+        }
+
         Role role = jwtService.extractRole(request.getToken());
         return new ValidateTokenResponse(true, userId, role);
     }
 
+    @Override
     @Transactional
     public void deleteCredentialsByUserId(Long userId) {
         refreshTokenRepository.deleteAllByUserId(userId);

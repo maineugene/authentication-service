@@ -61,4 +61,9 @@ public interface JwtService {
      * @return the expiration date from the token's "exp" claim
      */
     Date extractExpiration(String token);
+
+    /**
+     * Checks if the token is a refresh token (has "type": "refresh" claim)
+     */
+    boolean isRefreshToken(String token);
 }

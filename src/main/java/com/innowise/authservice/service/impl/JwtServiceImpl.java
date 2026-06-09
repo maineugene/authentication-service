@@ -20,6 +20,7 @@ public class JwtServiceImpl implements JwtService {
 
     private final JwtProperties jwtProperties;
 
+    @Override
     public String generateAccessToken(Long userId, Role role) {
         return Jwts.builder()
                 .subject(userId.toString())
@@ -30,6 +31,7 @@ public class JwtServiceImpl implements JwtService {
                 .compact();
     }
 
+    @Override
     public String generateRefreshToken(Long userId) {
         return Jwts.builder()
                 .subject(userId.toString())
@@ -40,6 +42,7 @@ public class JwtServiceImpl implements JwtService {
                 .compact();
     }
 
+    @Override
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -49,15 +52,18 @@ public class JwtServiceImpl implements JwtService {
         }
     }
 
+    @Override
     public Long extractUserId(String token) {
         return Long.parseLong(parseClaims(token).getSubject());
     }
 
+    @Override
     public Role extractRole(String token) {
         String roleName = parseClaims(token).get("role", String.class);
         return Role.valueOf(roleName);
     }
 
+    @Override
     public Date extractExpiration(String token) {
         return parseClaims(token).getExpiration();
     }
@@ -73,5 +79,15 @@ public class JwtServiceImpl implements JwtService {
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecret());
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    @Override
+    public boolean isRefreshToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            return "refresh".equals(claims.get("type", String.class));
+        } catch (JwtException e) {
+            return false;
+        }
     }
 }
